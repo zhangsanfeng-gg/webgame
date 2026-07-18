@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的第一个2D游戏</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #222; 
+            overflow: hidden;
+        }
+    </style>
+    <!-- 引入 Phaser 3 核心库 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <!-- 引入虚拟摇杆插件 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins/dist/rexvirtualjoystickplugin.min.js"></script>
+</head>
+<body>
+
+<script>
+    class MainScene extends Phaser.Scene {
+        constructor() {
+            super({ key: 'MainScene' });
+        }
+
+        preload() {
+            // 动态生成一个红色的玩家方块
+            let graphics = this.make.graphics({ x: 0, y: 0 });
+            graphics.fillStyle(0xff0000);
+            graphics.fillRect(0, 0, 32, 32);
+            graphics.generateTexture('player', 32, 32);
+            
+            // 动态生成绿色的砖块
+            graphics.clear();
+            graphics.fillStyle(0x00ff00);
+            graphics.fillRect(0, 0, 64, 16);
+            graphics.generateTexture('brick', 64, 16);
+        }
+
+        create() {
+            // 开启 Arcade 物理引擎
+            this.physics.world.setBounds(0, 0, 800, 600);
+
+            // 创建玩家
+            this.player = this.physics.add.sprite(400, 500, 'player');
+            this.player.setCollideWorldBounds(true);
+            this.player.setBounce(1); 
+
+            // 创建几个砖块
+            this.bricks = this.physics.add.staticGroup();
+            for (let i = 0; i < 5; i++) {
+                this.bricks.create(200 + i * 80, 100, 'brick');
+            }
+
+            // 设置玩家与砖块的碰撞检测
+            this.physics.add.collider(this.player, this.bricks, (player, brick) => {
+                brick.destroy(); // 碰到砖块就销毁
+            });
+
+            // 【关键修改】直接获取插件并判断是否为空
+            const joystickPlugin = this.plugins.get('rexVirtualJoystick');
+            if (joystickPlugin) {
+                this.joystick = joystickPlugin.add(this, {
+                    x: 100, y: 500, radius: 60,
+                    base: this.add.circle(0, 0, 60, 0x888888, 0.5),
+                    thumb: this.add.circle(0, 0, 30, 0xcccccc)
+                });
+            } else {
+                console.warn("虚拟摇杆插件未找到，请检查网络或插件配置");
+            }
+        }
+
+        update() {
+            // 重置速度
+            this.player.setVelocity(0);
+
+            // 读取摇杆数据控制移动
+            if (this.joystick) {
+                let forceX = this.joystick.forceX;
+                let forceY = this.joystick.forceY;
+
+                // 给玩家施加对应的速度
+                this.player.setVelocityX(forceX * 3); 
+                this.player.setVelocityY(forceY * 3);
+            }
+        }
+    }
+
+    // 游戏配置
+    const config = {
+        type: Phaser.AUTO,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 0 },
+                debug: false
+            }
+        },
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 800,
+            height: 600
+        },
+        // 注册插件
+        plugins: {
+            global: [{
+                key: 'rexVirtualJoystick',
+                plugin: window.RexVirtualJoystickPlugin,
+                start: true
+            }]
+        },
+        scene: [MainScene]
+    };
+
+    // 启动游戏
+    const game = new Phaser.Game(config);
+</script>
+
+</body>
+</html>
